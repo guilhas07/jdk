@@ -22,11 +22,12 @@
  *
  */
 
-#include "precompiled.hpp"
 #include "gc/shared/gcConfig.hpp"
+#include "precompiled.hpp"
 #include "runtime/globals_extension.hpp"
 #include "runtime/java.hpp"
 #include "runtime/os.hpp"
+#include "utilities/globalDefinitions.hpp"
 #include "utilities/macros.hpp"
 #if INCLUDE_EPSILONGC
 #include "gc/epsilon/epsilonArguments.hpp"
@@ -48,51 +49,60 @@
 #endif
 
 struct IncludedGC {
-  bool&               _flag;
+  bool &_flag;
   CollectedHeap::Name _name;
-  GCArguments&        _arguments;
-  const char*         _hs_err_name;
+  GCArguments &_arguments;
+  const char *_hs_err_name;
 
-  IncludedGC(bool& flag, CollectedHeap::Name name, GCArguments& arguments, const char* hs_err_name) :
-      _flag(flag), _name(name), _arguments(arguments), _hs_err_name(hs_err_name) {}
+  IncludedGC(bool &flag, CollectedHeap::Name name, GCArguments &arguments,
+             const char *hs_err_name)
+      : _flag(flag), _name(name), _arguments(arguments),
+        _hs_err_name(hs_err_name) {}
 };
 
-   EPSILONGC_ONLY(static EpsilonArguments    epsilonArguments;)
-        G1GC_ONLY(static G1Arguments         g1Arguments;)
-  PARALLELGC_ONLY(static ParallelArguments   parallelArguments;)
-    SERIALGC_ONLY(static SerialArguments     serialArguments;)
+EPSILONGC_ONLY(static EpsilonArguments epsilonArguments;)
+G1GC_ONLY(static G1Arguments g1Arguments;)
+PARALLELGC_ONLY(static ParallelArguments parallelArguments;)
+SERIALGC_ONLY(static SerialArguments serialArguments;)
 SHENANDOAHGC_ONLY(static ShenandoahArguments shenandoahArguments;)
-         ZGC_ONLY(static ZSharedArguments    zArguments;)
+ZGC_ONLY(static ZSharedArguments zArguments;)
 
 // Table of included GCs, for translating between command
 // line flag, CollectedHeap::Name and GCArguments instance.
 static const IncludedGC IncludedGCs[] = {
-   EPSILONGC_ONLY_ARG(IncludedGC(UseEpsilonGC,       CollectedHeap::Epsilon,    epsilonArguments,    "epsilon gc"))
-        G1GC_ONLY_ARG(IncludedGC(UseG1GC,            CollectedHeap::G1,         g1Arguments,         "g1 gc"))
-  PARALLELGC_ONLY_ARG(IncludedGC(UseParallelGC,      CollectedHeap::Parallel,   parallelArguments,   "parallel gc"))
-    SERIALGC_ONLY_ARG(IncludedGC(UseSerialGC,        CollectedHeap::Serial,     serialArguments,     "serial gc"))
-SHENANDOAHGC_ONLY_ARG(IncludedGC(UseShenandoahGC,    CollectedHeap::Shenandoah, shenandoahArguments, "shenandoah gc"))
-         ZGC_ONLY_ARG(IncludedGC(UseZGC,             CollectedHeap::Z,          zArguments,          "z gc"))
-};
+    EPSILONGC_ONLY_ARG(IncludedGC(
+        UseEpsilonGC, CollectedHeap::Epsilon, epsilonArguments,
+        "epsilon gc")) G1GC_ONLY_ARG(IncludedGC(UseG1GC, CollectedHeap::G1,
+                                                g1Arguments, "g1 gc"))
+        PARALLELGC_ONLY_ARG(IncludedGC(UseParallelGC, CollectedHeap::Parallel,
+                                       parallelArguments, "parallel gc"))
+            SERIALGC_ONLY_ARG(IncludedGC(UseSerialGC, CollectedHeap::Serial,
+                                         serialArguments, "serial gc"))
+                SHENANDOAHGC_ONLY_ARG(
+                    IncludedGC(UseShenandoahGC, CollectedHeap::Shenandoah,
+                               shenandoahArguments, "shenandoah gc"))
+                    ZGC_ONLY_ARG(IncludedGC(UseZGC, CollectedHeap::Z,
+                                            zArguments, "z gc"))};
 
-#define FOR_EACH_INCLUDED_GC(var)                                            \
-  for (const IncludedGC* var = &IncludedGCs[0]; var < &IncludedGCs[ARRAY_SIZE(IncludedGCs)]; var++)
+#define FOR_EACH_INCLUDED_GC(var)                                              \
+  for (const IncludedGC *var = &IncludedGCs[0];                                \
+       var < &IncludedGCs[ARRAY_SIZE(IncludedGCs)]; var++)
 
-#define FAIL_IF_SELECTED(option)                                            \
-  if (option) {                                                             \
-    vm_exit_during_initialization("Option -XX:+" #option " not supported"); \
+#define FAIL_IF_SELECTED(option)                                               \
+  if (option) {                                                                \
+    vm_exit_during_initialization("Option -XX:+" #option " not supported");    \
   }
 
-GCArguments* GCConfig::_arguments = nullptr;
+GCArguments *GCConfig::_arguments = nullptr;
 bool GCConfig::_gc_selected_ergonomically = false;
 
 void GCConfig::fail_if_non_included_gc_is_selected() {
-  NOT_EPSILONGC(   FAIL_IF_SELECTED(UseEpsilonGC));
-  NOT_G1GC(        FAIL_IF_SELECTED(UseG1GC));
-  NOT_PARALLELGC(  FAIL_IF_SELECTED(UseParallelGC));
-  NOT_SERIALGC(    FAIL_IF_SELECTED(UseSerialGC));
+  NOT_EPSILONGC(FAIL_IF_SELECTED(UseEpsilonGC));
+  NOT_G1GC(FAIL_IF_SELECTED(UseG1GC));
+  NOT_PARALLELGC(FAIL_IF_SELECTED(UseParallelGC));
+  NOT_SERIALGC(FAIL_IF_SELECTED(UseSerialGC));
   NOT_SHENANDOAHGC(FAIL_IF_SELECTED(UseShenandoahGC));
-  NOT_ZGC(         FAIL_IF_SELECTED(UseZGC));
+  NOT_ZGC(FAIL_IF_SELECTED(UseZGC));
 }
 
 void GCConfig::select_gc_ergonomically() {
@@ -139,7 +149,7 @@ bool GCConfig::is_exactly_one_gc_selected() {
   return selected != CollectedHeap::None;
 }
 
-GCArguments* GCConfig::select_gc() {
+GCArguments *GCConfig::select_gc() {
   // Fail immediately if an unsupported GC is selected
   fail_if_non_included_gc_is_selected();
 
@@ -150,7 +160,8 @@ GCArguments* GCConfig::select_gc() {
     if (is_no_gc_selected()) {
       // Failed to select GC ergonomically
       vm_exit_during_initialization("Garbage collector not selected "
-                                    "(default collector explicitly disabled)", nullptr);
+                                    "(default collector explicitly disabled)",
+                                    nullptr);
     }
 
     // Succeeded to select GC ergonomically
@@ -159,7 +170,8 @@ GCArguments* GCConfig::select_gc() {
 
   if (!is_exactly_one_gc_selected()) {
     // More than one GC selected
-    vm_exit_during_initialization("Multiple garbage collectors selected", nullptr);
+    vm_exit_during_initialization("Multiple garbage collectors selected",
+                                  nullptr);
   }
 
   // Exactly one GC selected
@@ -207,7 +219,19 @@ bool GCConfig::is_gc_selected_ergonomically() {
   return _gc_selected_ergonomically;
 }
 
-const char* GCConfig::hs_err_name() {
+char const **GCConfig::get_supported_gcs() {
+  /*char *gcs[ARRAY_SIZE(IncludedGCs)];*/
+  const char **gcs =
+      NEW_C_HEAP_ARRAY(char const *, ARRAY_SIZE(IncludedGCs), mtArguments);
+  int id = 0;
+  FOR_EACH_INCLUDED_GC(gc) {
+    if (is_gc_supported(gc->_name))
+      gcs[id++] = CollectedHeap::toString(gc->_name);
+  }
+  return gcs;
+}
+
+const char *GCConfig::hs_err_name() {
   if (is_exactly_one_gc_selected()) {
     // Exactly one GC selected
     FOR_EACH_INCLUDED_GC(gc) {
@@ -221,7 +245,7 @@ const char* GCConfig::hs_err_name() {
   return "unknown gc";
 }
 
-const char* GCConfig::hs_err_name(CollectedHeap::Name name) {
+const char *GCConfig::hs_err_name(CollectedHeap::Name name) {
   FOR_EACH_INCLUDED_GC(gc) {
     if (gc->_name == name) {
       return gc->_hs_err_name;
@@ -230,7 +254,7 @@ const char* GCConfig::hs_err_name(CollectedHeap::Name name) {
   return "unknown gc";
 }
 
-GCArguments* GCConfig::arguments() {
+GCArguments *GCConfig::arguments() {
   assert(_arguments != nullptr, "Not initialized");
   return _arguments;
 }
